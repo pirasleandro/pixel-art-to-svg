@@ -3,6 +3,7 @@ import Pixel from './Pixel';
 import Point, { directions } from './Point';
 
 export default class PixelArt {
+  public readonly filename: string;
   public readonly pixels: Pixel[][] = [];
   public readonly areas: Area[];
 
@@ -14,14 +15,15 @@ export default class PixelArt {
     return this.pixels.length;
   }
 
-  constructor(pixels: Pixel[][]) {
+  constructor(filename: string, pixels: Pixel[][]) {
+    this.filename = filename.split('.')[0];
     this.pixels = pixels;
     this.areas = this.findAreas();
   }
 
   public static async fromFile(file: File) {
     const pixels = await this.getPixels(file);
-    return new PixelArt(pixels);
+    return new PixelArt(file.name, pixels);
   }
 
   private static getPixels(file: File): Promise<Pixel[][]> {
@@ -190,7 +192,7 @@ export default class PixelArt {
     const paths: string[] = [];
     for (const area of this.areas) {
       if (area.hex === 0) continue;
-      area.printInPixelArt(this);
+      // area.printInPixelArt(this);
       paths.push(this.generateOptimizedSvgPath2(area));
     }
     return paths;
@@ -242,24 +244,49 @@ export default class PixelArt {
     const pathCommands: string[] = [];
     const pixels = [...area].toSorted((p1, p2) => p1.y - p2.y || p1.x - p2.x);
 
-    const lines: [from: Pixel, to: Pixel][] = [];
-    let line: [from: Pixel, to: Pixel] | null = null;
+    type Line = [from: Pixel, to?: Pixel];
+    const lines: Line[] = [];
+    let line: Line | null = null;
     for (let i = 0; i < pixels.length; i++) {
       const pixel = pixels[i];
       if (!line) {
-        line = [pixel, pixel];
+        line = [pixel];
+      } else if (line[0].y === pixel.y && line[0].x + 1 === pixel.x) {
+        line[1] = pixel;
       } else {
-        // TODO: Check if the line can be extended
+        lines.push(line);
+        line = [pixel];
       }
     }
+    if (line) lines.push(line);
+    // console.log(lines);
+
+    const pathData = lines
+      .map((line) => `M ${line[0].x} ${line[0].y} H ${(line[1]?.x ?? line[0].x) + 1}`)
+      .join(' ');
+    // console.log(pathData);
 
     // Close the path to ensure it's a valid shape
     pathCommands.push('Z');
 
     // Combine all path commands into a single string
-    const pathData = pathCommands.join(' ');
+    // const pathData = pathCommands.join(' ');
 
     // Return the complete SVG string
-    return `<path d="${pathData}" fill="${area.hexStr}" stroke="none" />`;
+    return `<path d="${pathData}" stroke="${area.hexStr}" />`;
+  }
+
+  toSvg(scale: number = 1): string {
+    const retval = `<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="${this.width * scale}px"
+  height="${this.height * scale}px"
+  viewBox="0 0 ${this.width} ${this.height}"
+  shape-rendering="crispEdges"
+>
+  ${this.generateSvgPaths().join('\n  ')}
+</svg>
+`;
+    return retval;
   }
 }

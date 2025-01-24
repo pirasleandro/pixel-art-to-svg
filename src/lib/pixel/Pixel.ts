@@ -42,4 +42,8 @@ export default class Pixel implements IPixel {
   toString(): string {
     return `[${this.x},${this.y}](${this.hexStr})`;
   }
+
+  [Symbol.toStringTag]() {
+    return 'Pixel' + this.toString();
+  }
 }

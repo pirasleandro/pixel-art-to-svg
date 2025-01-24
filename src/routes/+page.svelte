@@ -4,6 +4,7 @@
   import type { ChangeEventHandler } from 'svelte/elements';
   import PixelArtSvg from '../components/PixelArtSvg.svelte';
   import Area from '$lib/pixel/Area';
+  import { downloadZip } from 'client-zip';
 
   const results: PixelArt[] = $state([]);
 
@@ -82,17 +83,46 @@
 
     return paths;
   }
+
+  function exportSvgs() {
+    const files = results.map(
+      (pixelArt) =>
+        new File([pixelArt.toSvg()], `${pixelArt.filename}.svg`, { type: 'image/svg+xml' })
+    );
+    downloadZip(files)
+      .blob()
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pixelart_svgs_${files.length}.zip`;
+        a.click();
+      });
+    /* document.querySelectorAll('svg').forEach((svg) => {
+      const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'pixelart.svg';
+      a.click();
+    }); */
+  }
 </script>
 
 <!-- <img src="https://banner-writer.web.app/image/L8.3J.png" /> -->
 <input type="file" id="file-input" multiple {onchange} />
-<canvas id="canvas"></canvas>
+<button onclick={exportSvgs}>Download</button>
+<!-- <canvas id="canvas"></canvas> -->
 <div id="results">
   {#each results as pixelArt}
-    <PixelArtSvg {pixelArt} scale={10} />
+    <!-- <PixelArtSvg {pixelArt} scale={1} /> -->
+    {@html pixelArt.toSvg()}
   {/each}
 </div>
-<svg id="svg-template" viewBox="0 0 16 16" width="160px" height="160px">
-  <!-- <rect width=1 height=1 x=0 y=0 fill="rgba(0, 255, 0, 255)"></rect>
-  <rect width=1 height=1 x=15 y=15 fill=orange></rect> -->
-</svg>
+
+<style>
+  #results {
+    display: flex;
+    flex-wrap: wrap;
+  }
+</style>
